@@ -129,9 +129,28 @@ impl State {
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
                     },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 2,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: wgpu::BufferSize::new(64),
+                        },
+                        count: None,
+                    },
                 ],
                 label: Some("texture_bind_group_layout"),
             });
+
+        let mx_total = generate_matrix(diffuse_texture.dimensions, config.width, config.height);
+        let mx_ref: &[f32; 16] = mx_total.as_ref();
+        let uniform_buf = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Uniform Buffer"),
+            contents: bytemuck::cast_slice(mx_ref),
+            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+        });
+
         let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
             layout: &texture_bind_group_layout,
             entries: &[
@@ -142,6 +161,10 @@ impl State {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: uniform_buf.as_entire_binding(),
                 },
             ],
             label: Some("diffuse_bind_group"),
@@ -223,6 +246,20 @@ impl State {
     pub fn update_texture(&mut self, bytes: &[u8], dimensions: (u32, u32)) {
         self.diffuse_texture =
             Texture::from_frame(&self.device, &self.queue, bytes, dimensions, None);
+        let mx_total = generate_matrix(
+            self.diffuse_texture.dimensions,
+            self.config.width,
+            self.config.height,
+        );
+        let mx_ref: &[f32; 16] = mx_total.as_ref();
+        let uniform_buf = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Uniform Buffer"),
+                contents: bytemuck::cast_slice(mx_ref),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            });
+
         let texture_bind_group_layout =
             self.device
                 .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
@@ -245,6 +282,16 @@ impl State {
                             ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                             count: None,
                         },
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 2,
+                            visibility: wgpu::ShaderStages::VERTEX,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Uniform,
+                                has_dynamic_offset: false,
+                                min_binding_size: wgpu::BufferSize::new(64),
+                            },
+                            count: None,
+                        },
                     ],
                     label: Some("texture_bind_group_layout"),
                 });
@@ -258,6 +305,10 @@ impl State {
                 wgpu::BindGroupEntry {
                     binding: 1,
                     resource: wgpu::BindingResource::Sampler(&self.diffuse_texture.sampler),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: uniform_buf.as_entire_binding(),
                 },
             ],
             label: Some("diffuse_bind_group"),
@@ -293,9 +344,9 @@ impl State {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
                             a: 1.0,
                         }),
                         store: true,
@@ -317,4 +368,9 @@ impl State {
 
         Ok(())
     }
+}
+fn generate_matrix(dimensions: (u32, u32), width: u32, height: u32) -> glam::Mat4 {
+    let y = dimensions.1 as f32 / height as f32;
+    let x = dimensions.0 as f32 / width as f32;
+    glam::Mat4::from_scale(glam::Vec3 { x, y, z: 1.0 })
 }

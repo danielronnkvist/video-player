@@ -10,6 +10,7 @@ winit = "0.27.2"
 wgpu = "0.13.1"
 tokio = { version = "1.20.1", features = ["full"] }
 bytemuck = { version = "1.4", features = [ "derive" ] }
+glam = "*"
 
 [dependencies.ffmpeg-next]
 version = "5.1.1"
