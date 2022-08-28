@@ -9,7 +9,7 @@ pub struct VideoStream {
 
 impl VideoStream {
     pub fn new(path: &str) -> Self {
-        let mut ictx = ffmpeg_next::format::input(&path.to_string()).expect("to read the input");
+        let ictx = ffmpeg_next::format::input(&path.to_string()).expect("to read the input");
 
         let input = ictx
             .streams()
@@ -20,9 +20,9 @@ impl VideoStream {
         let context_decoder =
             ffmpeg_next::codec::context::Context::from_parameters(input.parameters())
                 .expect("context decoder");
-        let mut decoder = context_decoder.decoder().video().expect("video decoder");
+        let decoder = context_decoder.decoder().video().expect("video decoder");
 
-        let mut scaler = Context::get(
+        let scaler = Context::get(
             decoder.format(),
             decoder.width(),
             decoder.height(),
@@ -52,11 +52,8 @@ impl VideoStream {
                     self.scaler
                         .run(&decoded, &mut rgb_frame)
                         .expect("scale frame");
-                    // save_file(&rgb_frame, frame_index).expect("saved file");
-                    // window.frame_index += 1;
                     return Some(rgb_frame);
                 }
-                // recieve_and_process_decoded_frames(&mut decoder);
             }
         }
         None

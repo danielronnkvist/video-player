@@ -1,6 +1,6 @@
 use crate::texture::Texture;
 use wgpu::util::DeviceExt;
-use winit::{event::WindowEvent, window::Window};
+use winit::window::Window;
 
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
@@ -271,10 +271,6 @@ impl State {
             self.config.height = new_size.height;
             self.surface.configure(&self.device, &self.config);
         }
-    }
-
-    pub fn input(&mut self, _event: WindowEvent) -> bool {
-        false
     }
 
     pub fn update(&mut self) {}
