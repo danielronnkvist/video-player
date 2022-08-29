@@ -1,3 +1,4 @@
+use clap::Parser;
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -10,13 +11,22 @@ mod video;
 use state::State;
 use video::VideoStream;
 
+/// Quick comparison of videos
+#[derive(Parser, Debug)]
+#[clap(author, version, about, long_about = None)]
+struct Args {
+    /// list of videos to compare
+    videos: Vec<String>,
+}
+
 pub async fn run() {
+    let args = Args::parse();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new()
         .with_title("quick compare")
         .build(&event_loop)
         .unwrap();
-    let mut state = State::new(&window).await;
+    let mut state = State::new(&window, args.videos).await;
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             ref event,

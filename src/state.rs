@@ -50,9 +50,6 @@ const VERTICES: &[Vertex] = &[
 
 const INDICES: &[u16] = &[2, 1, 0, 3, 2, 0];
 
-const NUM_INSTANCES: u32 = 2;
-const INSTANCE_DISPLACEMENT: glam::Vec3 = glam::Vec3::new(NUM_INSTANCES as f32 / 10.0, 0.0, 0.0);
-
 struct Instance {
     position: glam::Vec3,
     texture: crate::texture::VideoTexture,
@@ -129,7 +126,7 @@ pub struct State {
 }
 
 impl State {
-    pub async fn new(window: &Window) -> Self {
+    pub async fn new(window: &Window, videos: Vec<String>) -> Self {
         let size = window.inner_size();
 
         let instance = wgpu::Instance::new(wgpu::Backends::all());
@@ -260,20 +257,18 @@ impl State {
         });
         let num_indices = INDICES.len() as u32;
 
-        let instances = (0..NUM_INSTANCES)
-            .map(|x| {
+        let instances = videos
+            .iter()
+            .enumerate()
+            .map(|(x, video)| {
                 let position = glam::Vec3 {
                     x: x as f32,
                     y: 0.0,
                     z: 0.0,
-                } - INSTANCE_DISPLACEMENT;
+                } - glam::Vec3::new(videos.len() as f32 / 10.0, 0.0, 0.0);
 
-                let texture = crate::texture::VideoTexture::new(
-                    &format!("video{}.mp4", x),
-                    &device,
-                    &queue,
-                    Some(&format!("video{}", x)),
-                );
+                let texture =
+                    crate::texture::VideoTexture::new(video, &device, &queue, Some(video));
                 let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
                     layout: &bind_group_layout,
                     entries: &[
