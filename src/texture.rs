@@ -87,3 +87,40 @@ impl Texture {
         Self::from_frame(device, queue, &rgba, dimensions, label)
     }
 }
+
+pub struct VideoTexture {
+    pub stream: crate::VideoStream,
+    pub texture: Texture,
+}
+
+impl VideoTexture {
+    pub fn new(
+        path: &str,
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        label: Option<&str>,
+    ) -> Self {
+        let mut stream = crate::VideoStream::new(path);
+        let frame = stream.get_next_frame().unwrap();
+        let texture = Texture::from_frame(
+            device,
+            queue,
+            frame.data(0),
+            (frame.width(), frame.height()),
+            label,
+        );
+
+        Self { stream, texture }
+    }
+
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
+        let frame = self.stream.get_next_frame().unwrap();
+        self.texture = Texture::from_frame(
+            device,
+            queue,
+            frame.data(0),
+            (frame.width(), frame.height()),
+            None,
+        );
+    }
+}

@@ -58,4 +58,9 @@ impl VideoStream {
         }
         None
     }
+
+    pub fn frame_time(&self) -> u128 {
+        let frame_rate = self.decoder.frame_rate().unwrap();
+        (frame_rate.numerator() as f32 / frame_rate.denominator() as f32) as u128
+    }
 }

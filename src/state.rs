@@ -51,15 +51,13 @@ const VERTICES: &[Vertex] = &[
 
 const INDICES: &[u16] = &[2, 1, 0, 3, 2, 0];
 
-const NUM_INSTANCES_PER_ROW: u32 = 10;
-const INSTANCE_DISPLACEMENT: glam::Vec3 = glam::Vec3::new(
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-    0.0,
-    NUM_INSTANCES_PER_ROW as f32 * 0.5,
-);
+const NUM_INSTANCES: u32 = 2;
+const INSTANCE_DISPLACEMENT: glam::Vec3 = glam::Vec3::new(NUM_INSTANCES as f32 / 10.0, 0.0, 0.0);
 
 struct Instance {
     position: glam::Vec3,
+    texture: crate::texture::VideoTexture,
+    texture_bind_group: wgpu::BindGroup,
 }
 
 impl Instance {
@@ -295,17 +293,44 @@ impl State {
         });
         let num_indices = INDICES.len() as u32;
 
-        let instances = (0..NUM_INSTANCES_PER_ROW)
-            .flat_map(|z| {
-                (0..NUM_INSTANCES_PER_ROW).map(move |x| {
-                    let position = glam::Vec3 {
-                        x: x as f32,
-                        y: 0.0,
-                        z: z as f32,
-                    } - INSTANCE_DISPLACEMENT;
+        let instances = (0..NUM_INSTANCES)
+            .map(|x| {
+                let position = glam::Vec3 {
+                    x: x as f32,
+                    y: 0.0,
+                    z: 0.0,
+                } - INSTANCE_DISPLACEMENT;
 
-                    Instance { position }
-                })
+                let texture = crate::texture::VideoTexture::new(
+                    &format!("video{}.mp4", x),
+                    &device,
+                    &queue,
+                    Some(&format!("video{}", x)),
+                );
+                let texture_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &texture_bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(&texture.texture.view),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(&texture.texture.sampler),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: uniform_buf.as_entire_binding(),
+                        },
+                    ],
+                    label: Some(&format!("texture bind group {}", x)),
+                });
+
+                Instance {
+                    position,
+                    texture,
+                    texture_bind_group,
+                }
             })
             .collect::<Vec<_>>();
 
@@ -414,7 +439,88 @@ impl State {
         }
     }
 
-    pub fn update(&mut self) {}
+    pub fn update(&mut self, elapsed_time: u128) {
+        self.instances.iter_mut().for_each(|instance| {
+            if elapsed_time > instance.texture.stream.frame_time() {
+                instance.texture.update(&self.device, &self.queue);
+                let mx_total = generate_matrix(
+                    instance.texture.texture.dimensions,
+                    self.config.width,
+                    self.config.height,
+                );
+                let mx_ref: &[f32; 16] = mx_total.as_ref();
+                let uniform_buf =
+                    self.device
+                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                            label: Some("Uniform Buffer"),
+                            contents: bytemuck::cast_slice(mx_ref),
+                            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+                        });
+                let texture_bind_group_layout =
+                    self.device
+                        .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                            entries: &[
+                                wgpu::BindGroupLayoutEntry {
+                                    binding: 0,
+                                    visibility: wgpu::ShaderStages::FRAGMENT,
+                                    ty: wgpu::BindingType::Texture {
+                                        multisampled: false,
+                                        view_dimension: wgpu::TextureViewDimension::D2,
+                                        sample_type: wgpu::TextureSampleType::Float {
+                                            filterable: true,
+                                        },
+                                    },
+                                    count: None,
+                                },
+                                wgpu::BindGroupLayoutEntry {
+                                    binding: 1,
+                                    visibility: wgpu::ShaderStages::FRAGMENT,
+                                    // This should match the filterable field of the
+                                    // corresponding Texture entry above.
+                                    ty: wgpu::BindingType::Sampler(
+                                        wgpu::SamplerBindingType::Filtering,
+                                    ),
+                                    count: None,
+                                },
+                                wgpu::BindGroupLayoutEntry {
+                                    binding: 2,
+                                    visibility: wgpu::ShaderStages::VERTEX,
+                                    ty: wgpu::BindingType::Buffer {
+                                        ty: wgpu::BufferBindingType::Uniform,
+                                        has_dynamic_offset: false,
+                                        min_binding_size: wgpu::BufferSize::new(64),
+                                    },
+                                    count: None,
+                                },
+                            ],
+                            label: Some("texture_bind_group_layout"),
+                        });
+                instance.texture_bind_group =
+                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                        layout: &texture_bind_group_layout,
+                        entries: &[
+                            wgpu::BindGroupEntry {
+                                binding: 0,
+                                resource: wgpu::BindingResource::TextureView(
+                                    &instance.texture.texture.view,
+                                ),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 1,
+                                resource: wgpu::BindingResource::Sampler(
+                                    &instance.texture.texture.sampler,
+                                ),
+                            },
+                            wgpu::BindGroupEntry {
+                                binding: 2,
+                                resource: uniform_buf.as_entire_binding(),
+                            },
+                        ],
+                        label: Some(&format!("texture bind group")),
+                    });
+            }
+        })
+    }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
@@ -446,12 +552,16 @@ impl State {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
             render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
             render_pass.set_vertex_buffer(1, self.instance_buffer.slice(..));
             render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.num_indices, 0, 0..self.instances.len() as _);
+
+            for (index, instance) in self.instances.iter().enumerate() {
+                let index = index as u32;
+                render_pass.set_bind_group(0, &instance.texture_bind_group, &[]);
+                render_pass.draw_indexed(0..self.num_indices, 0, index..(index + 1) as _);
+            }
         }
 
         // submit will accept anything that implements IntoIter
