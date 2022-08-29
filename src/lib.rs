@@ -1,5 +1,3 @@
-use std::time::Instant;
-
 use winit::{
     event::*,
     event_loop::{ControlFlow, EventLoop},
@@ -15,11 +13,7 @@ use video::VideoStream;
 pub async fn run() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
-    let mut video_stream = VideoStream::new("video0.mp4");
     let mut state = State::new(&window).await;
-    let frame = video_stream.get_next_frame().expect("frame");
-    state.update_texture(frame.data(0), (frame.width(), frame.height()));
-    let mut last_paint = Instant::now();
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {
             ref event,
@@ -44,12 +38,7 @@ pub async fn run() {
             _ => {}
         },
         Event::RedrawRequested(window_id) if window_id == window.id() => {
-            state.update(last_paint.elapsed().as_millis());
-            if last_paint.elapsed().as_millis() > video_stream.frame_time() {
-                let frame = video_stream.get_next_frame().expect("frame");
-                state.update_texture(frame.data(0), (frame.width(), frame.height()));
-                last_paint = Instant::now();
-            }
+            state.update();
             match state.render() {
                 Ok(_) => {}
                 // Reconfigure the surface if lost

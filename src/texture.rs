@@ -91,6 +91,7 @@ impl Texture {
 pub struct VideoTexture {
     pub stream: crate::VideoStream,
     pub texture: Texture,
+    last_update: std::time::Instant,
 }
 
 impl VideoTexture {
@@ -110,17 +111,26 @@ impl VideoTexture {
             label,
         );
 
-        Self { stream, texture }
+        Self {
+            stream,
+            texture,
+            last_update: std::time::Instant::now(),
+        }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) {
-        let frame = self.stream.get_next_frame().unwrap();
-        self.texture = Texture::from_frame(
-            device,
-            queue,
-            frame.data(0),
-            (frame.width(), frame.height()),
-            None,
-        );
+    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+        if self.last_update.elapsed().as_millis() > self.stream.frame_time() {
+            let frame = self.stream.get_next_frame().unwrap();
+            self.texture = Texture::from_frame(
+                device,
+                queue,
+                frame.data(0),
+                (frame.width(), frame.height()),
+                None,
+            );
+            self.last_update = std::time::Instant::now();
+            return true;
+        }
+        false
     }
 }

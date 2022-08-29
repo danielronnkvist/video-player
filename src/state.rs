@@ -124,8 +124,6 @@ pub struct State {
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     num_indices: u32,
-    diffuse_bind_group: wgpu::BindGroup,
-    pub diffuse_texture: Texture,
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
 }
@@ -214,25 +212,6 @@ impl State {
             label: Some("Uniform Buffer"),
             contents: bytemuck::cast_slice(mx_ref),
             usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-        });
-
-        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: uniform_buf.as_entire_binding(),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
         });
 
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
@@ -351,83 +330,9 @@ impl State {
             vertex_buffer,
             index_buffer,
             num_indices,
-            diffuse_bind_group,
-            diffuse_texture,
             instances,
             instance_buffer,
         }
-    }
-
-    pub fn update_texture(&mut self, bytes: &[u8], dimensions: (u32, u32)) {
-        self.diffuse_texture =
-            Texture::from_frame(&self.device, &self.queue, bytes, dimensions, None);
-        let mx_total = generate_matrix(
-            self.diffuse_texture.dimensions,
-            self.config.width,
-            self.config.height,
-        );
-        let mx_ref: &[f32; 16] = mx_total.as_ref();
-        let uniform_buf = self
-            .device
-            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                label: Some("Uniform Buffer"),
-                contents: bytemuck::cast_slice(mx_ref),
-                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            });
-
-        let texture_bind_group_layout =
-            self.device
-                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                    entries: &[
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            ty: wgpu::BindingType::Texture {
-                                multisampled: false,
-                                view_dimension: wgpu::TextureViewDimension::D2,
-                                sample_type: wgpu::TextureSampleType::Float { filterable: true },
-                            },
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 1,
-                            visibility: wgpu::ShaderStages::FRAGMENT,
-                            // This should match the filterable field of the
-                            // corresponding Texture entry above.
-                            ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
-                            count: None,
-                        },
-                        wgpu::BindGroupLayoutEntry {
-                            binding: 2,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Uniform,
-                                has_dynamic_offset: false,
-                                min_binding_size: wgpu::BufferSize::new(64),
-                            },
-                            count: None,
-                        },
-                    ],
-                    label: Some("texture_bind_group_layout"),
-                });
-        self.diffuse_bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-            layout: &texture_bind_group_layout,
-            entries: &[
-                wgpu::BindGroupEntry {
-                    binding: 0,
-                    resource: wgpu::BindingResource::TextureView(&self.diffuse_texture.view),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 1,
-                    resource: wgpu::BindingResource::Sampler(&self.diffuse_texture.sampler),
-                },
-                wgpu::BindGroupEntry {
-                    binding: 2,
-                    resource: uniform_buf.as_entire_binding(),
-                },
-            ],
-            label: Some("diffuse_bind_group"),
-        });
     }
 
     pub fn resize(&mut self, new_size: winit::dpi::PhysicalSize<u32>) {
@@ -439,10 +344,9 @@ impl State {
         }
     }
 
-    pub fn update(&mut self, elapsed_time: u128) {
+    pub fn update(&mut self) {
         self.instances.iter_mut().for_each(|instance| {
-            if elapsed_time > instance.texture.stream.frame_time() {
-                instance.texture.update(&self.device, &self.queue);
+            if instance.texture.update(&self.device, &self.queue) {
                 let mx_total = generate_matrix(
                     instance.texture.texture.dimensions,
                     self.config.width,
