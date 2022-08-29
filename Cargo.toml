@@ -10,14 +10,7 @@ winit = "0.27.2"
 wgpu = "0.13.1"
 tokio = { version = "1.20.1", features = ["full"] }
 bytemuck = { version = "1.4", features = [ "derive" ] }
-glam = "*"
+glam = "0.21.3"
 
 [dependencies.ffmpeg-next]
 version = "5.1.1"
-# default-features = false
-# features = [ "build-lib-x264" ]
-
-[dependencies.image]
-version = "0.24"
-default-features = false
-features = ["png", "jpeg"]

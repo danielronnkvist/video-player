@@ -1,5 +1,3 @@
-use image::GenericImageView;
-
 pub struct Texture {
     pub texture: wgpu::Texture,
     pub view: wgpu::TextureView,
@@ -63,28 +61,6 @@ impl Texture {
             sampler,
             dimensions,
         }
-    }
-
-    pub fn from_bytes(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        bytes: &[u8],
-        label: &str,
-    ) -> Self {
-        let img = image::load_from_memory(bytes).expect("loaded from memory");
-        Self::from_image(device, queue, &img, Some(label))
-    }
-
-    pub fn from_image(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        img: &image::DynamicImage,
-        label: Option<&str>,
-    ) -> Self {
-        let rgba = img.to_rgba8();
-        let dimensions = img.dimensions();
-
-        Self::from_frame(device, queue, &rgba, dimensions, label)
     }
 }
 
