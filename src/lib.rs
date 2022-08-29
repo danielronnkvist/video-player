@@ -12,7 +12,10 @@ use video::VideoStream;
 
 pub async fn run() {
     let event_loop = EventLoop::new();
-    let window = WindowBuilder::new().build(&event_loop).unwrap();
+    let window = WindowBuilder::new()
+        .with_title("quick compare")
+        .build(&event_loop)
+        .unwrap();
     let mut state = State::new(&window).await;
     event_loop.run(move |event, _, control_flow| match event {
         Event::WindowEvent {

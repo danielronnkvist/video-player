@@ -1,4 +1,4 @@
-use video_player::run;
+use quick_compare::run;
 
 #[tokio::main]
 async fn main() {
