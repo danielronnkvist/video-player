@@ -109,4 +109,20 @@ impl VideoTexture {
         }
         false
     }
+
+    pub fn get_previous_frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+        if self.last_update.elapsed().as_millis() > self.stream.frame_time() {
+            let frame = self.stream.get_previous_frame().unwrap();
+            self.texture = Texture::from_frame(
+                device,
+                queue,
+                frame.data(0),
+                (frame.width(), frame.height()),
+                None,
+            );
+            self.last_update = std::time::Instant::now();
+            return true;
+        }
+        false
+    }
 }

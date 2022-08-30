@@ -397,6 +397,14 @@ impl State {
         });
     }
 
+    pub fn get_previous_frame(&mut self) {
+        self.instances.iter_mut().for_each(|instance| {
+            instance
+                .texture
+                .get_previous_frame(&self.device, &self.queue);
+        });
+    }
+
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let output = self.surface.get_current_texture()?;
         let view = output

@@ -65,6 +65,20 @@ pub async fn run() {
                 }
                 state.update();
             }
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Left),
+                        ..
+                    },
+                ..
+            } => {
+                if state.video_status == state::VideoStatus::Paused {
+                    state.get_previous_frame();
+                }
+                state.update();
+            }
             WindowEvent::Resized(physical_size) => {
                 state.resize(*physical_size);
             }

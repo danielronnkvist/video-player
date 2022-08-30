@@ -59,6 +59,10 @@ impl VideoStream {
         None
     }
 
+    pub fn get_previous_frame(&mut self) -> Option<ffmpeg_next::util::frame::Video> {
+        todo!();
+    }
+
     pub fn frame_time(&self) -> u128 {
         let frame_rate = self.decoder.frame_rate().unwrap();
         (frame_rate.numerator() as f32 / frame_rate.denominator() as f32) as u128
