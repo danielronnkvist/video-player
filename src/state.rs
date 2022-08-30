@@ -129,7 +129,7 @@ pub struct State {
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
-    video_status: VideoStatus,
+    pub video_status: VideoStatus,
 }
 
 impl State {
@@ -351,49 +351,50 @@ impl State {
     }
 
     pub fn update(&mut self) {
-        if self.video_status == VideoStatus::Paused {
-            return;
-        }
         self.instances.iter_mut().for_each(|instance| {
-            if instance.texture.update(&self.device, &self.queue) {
-                let mx_total = generate_matrix(
-                    instance.texture.texture.dimensions,
-                    self.config.width,
-                    self.config.height,
-                );
-                let mx_ref: &[f32; 16] = mx_total.as_ref();
-                let transform_matrix =
-                    self.device
-                        .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                            label: Some("Uniform Buffer"),
-                            contents: bytemuck::cast_slice(mx_ref),
-                            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-                        });
-                instance.texture_bind_group =
-                    self.device.create_bind_group(&wgpu::BindGroupDescriptor {
-                        layout: &self.bind_group_layout,
-                        entries: &[
-                            wgpu::BindGroupEntry {
-                                binding: 0,
-                                resource: wgpu::BindingResource::TextureView(
-                                    &instance.texture.texture.view,
-                                ),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 1,
-                                resource: wgpu::BindingResource::Sampler(
-                                    &instance.texture.texture.sampler,
-                                ),
-                            },
-                            wgpu::BindGroupEntry {
-                                binding: 2,
-                                resource: transform_matrix.as_entire_binding(),
-                            },
-                        ],
-                        label: Some(&format!("texture bind group")),
+            let mx_total = generate_matrix(
+                instance.texture.texture.dimensions,
+                self.config.width,
+                self.config.height,
+            );
+            let mx_ref: &[f32; 16] = mx_total.as_ref();
+            let transform_matrix =
+                self.device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Uniform Buffer"),
+                        contents: bytemuck::cast_slice(mx_ref),
+                        usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
                     });
-            }
+            instance.texture_bind_group =
+                self.device.create_bind_group(&wgpu::BindGroupDescriptor {
+                    layout: &self.bind_group_layout,
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: wgpu::BindingResource::TextureView(
+                                &instance.texture.texture.view,
+                            ),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 1,
+                            resource: wgpu::BindingResource::Sampler(
+                                &instance.texture.texture.sampler,
+                            ),
+                        },
+                        wgpu::BindGroupEntry {
+                            binding: 2,
+                            resource: transform_matrix.as_entire_binding(),
+                        },
+                    ],
+                    label: Some(&format!("texture bind group")),
+                });
         })
+    }
+
+    pub fn get_next_frame(&mut self) {
+        self.instances.iter_mut().for_each(|instance| {
+            instance.texture.get_next_frame(&self.device, &self.queue);
+        });
     }
 
     pub fn render(&mut self) -> Result<(), wgpu::SurfaceError> {

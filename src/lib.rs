@@ -51,6 +51,20 @@ pub async fn run() {
                     },
                 ..
             } => state.toggle_video_status(None),
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Right),
+                        ..
+                    },
+                ..
+            } => {
+                if state.video_status == state::VideoStatus::Paused {
+                    state.get_next_frame();
+                }
+                state.update();
+            }
             WindowEvent::Resized(physical_size) => {
                 state.resize(*physical_size);
             }
@@ -60,6 +74,9 @@ pub async fn run() {
             _ => {}
         },
         Event::RedrawRequested(window_id) if window_id == window.id() => {
+            if state.video_status == state::VideoStatus::Playing {
+                state.get_next_frame();
+            }
             state.update();
             match state.render() {
                 Ok(_) => {}

@@ -94,7 +94,7 @@ impl VideoTexture {
         }
     }
 
-    pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
+    pub fn get_next_frame(&mut self, device: &wgpu::Device, queue: &wgpu::Queue) -> bool {
         if self.last_update.elapsed().as_millis() > self.stream.frame_time() {
             let frame = self.stream.get_next_frame().unwrap();
             self.texture = Texture::from_frame(
