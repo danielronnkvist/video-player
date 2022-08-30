@@ -110,6 +110,12 @@ impl InstanceRaw {
     }
 }
 
+#[derive(PartialEq, Eq)]
+pub enum VideoStatus {
+    Playing,
+    Paused,
+}
+
 pub struct State {
     surface: wgpu::Surface,
     device: wgpu::Device,
@@ -123,6 +129,7 @@ pub struct State {
     instances: Vec<Instance>,
     instance_buffer: wgpu::Buffer,
     bind_group_layout: wgpu::BindGroupLayout,
+    video_status: VideoStatus,
 }
 
 impl State {
@@ -323,6 +330,7 @@ impl State {
             instances,
             instance_buffer,
             bind_group_layout,
+            video_status: VideoStatus::Playing,
         }
     }
 
@@ -335,7 +343,17 @@ impl State {
         }
     }
 
+    pub fn toggle_video_status(&mut self, video_status: Option<VideoStatus>) {
+        self.video_status = video_status.unwrap_or_else(|| match self.video_status {
+            VideoStatus::Paused => VideoStatus::Playing,
+            VideoStatus::Playing => VideoStatus::Paused,
+        });
+    }
+
     pub fn update(&mut self) {
+        if self.video_status == VideoStatus::Paused {
+            return;
+        }
         self.instances.iter_mut().for_each(|instance| {
             if instance.texture.update(&self.device, &self.queue) {
                 let mx_total = generate_matrix(

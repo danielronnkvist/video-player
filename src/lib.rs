@@ -42,6 +42,15 @@ pub async fn run() {
                     },
                 ..
             } => *control_flow = ControlFlow::Exit,
+            WindowEvent::KeyboardInput {
+                input:
+                    KeyboardInput {
+                        state: ElementState::Pressed,
+                        virtual_keycode: Some(VirtualKeyCode::Space),
+                        ..
+                    },
+                ..
+            } => state.toggle_video_status(None),
             WindowEvent::Resized(physical_size) => {
                 state.resize(*physical_size);
             }
