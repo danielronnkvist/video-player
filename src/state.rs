@@ -52,6 +52,7 @@ const INDICES: &[u16] = &[2, 1, 0, 3, 2, 0];
 
 struct Instance {
     position: glam::Vec3,
+    scale: glam::Vec3,
     texture: crate::texture::VideoTexture,
     texture_bind_group: wgpu::BindGroup,
 }
@@ -59,7 +60,9 @@ struct Instance {
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: glam::Mat4::from_translation(self.position).to_cols_array_2d(),
+            model: (glam::Mat4::from_scale(self.scale)
+                * glam::Mat4::from_translation(self.position))
+            .to_cols_array_2d(),
         }
     }
 }
@@ -269,10 +272,15 @@ impl State {
             .enumerate()
             .map(|(x, video)| {
                 let position = glam::Vec3 {
-                    x: x as f32,
+                    x: -1.0 + 2.0 * (x as f32 / (videos.len() - 1) as f32),
                     y: 0.0,
                     z: 0.0,
-                } - glam::Vec3::new(videos.len() as f32 / 10.0, 0.0, 0.0);
+                };
+                let scale = glam::Vec3 {
+                    x: 1.0 / videos.len() as f32,
+                    y: 1.0 / videos.len() as f32,
+                    z: 1.0,
+                };
 
                 let texture =
                     crate::texture::VideoTexture::new(video, &device, &queue, Some(video));
@@ -304,6 +312,7 @@ impl State {
 
                 Instance {
                     position,
+                    scale,
                     texture,
                     texture_bind_group,
                 }
@@ -352,11 +361,7 @@ impl State {
 
     pub fn update(&mut self) {
         self.instances.iter_mut().for_each(|instance| {
-            let mx_total = generate_matrix(
-                instance.texture.texture.dimensions,
-                self.config.width,
-                self.config.height,
-            );
+            let mx_total = generate_matrix(self.config.width, self.config.height);
             let mx_ref: &[f32; 16] = mx_total.as_ref();
             let transform_matrix =
                 self.device
@@ -455,8 +460,14 @@ impl State {
     }
 }
 
-fn generate_matrix(dimensions: (u32, u32), width: u32, height: u32) -> glam::Mat4 {
-    let y = dimensions.1 as f32 / height as f32;
-    let x = dimensions.0 as f32 / width as f32;
-    glam::Mat4::from_scale(glam::Vec3 { x, y, z: 1.0 })
+fn generate_matrix(width: u32, height: u32) -> glam::Mat4 {
+    let width = width as f32;
+    let height = height as f32;
+
+    let aspect_ratio_scale = glam::Mat4::from_scale(glam::Vec3 {
+        x: 1.0,
+        y: width / height,
+        z: 1.0,
+    });
+    return aspect_ratio_scale;
 }
