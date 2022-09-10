@@ -51,8 +51,7 @@ const VERTICES: &[Vertex] = &[
 const INDICES: &[u16] = &[2, 1, 0, 3, 2, 0];
 
 struct Instance {
-    position: glam::Vec3,
-    scale: glam::Vec3,
+    transform: glam::Mat4,
     texture: crate::texture::VideoTexture,
     texture_bind_group: wgpu::BindGroup,
 }
@@ -60,9 +59,7 @@ struct Instance {
 impl Instance {
     fn to_raw(&self) -> InstanceRaw {
         InstanceRaw {
-            model: (glam::Mat4::from_scale(self.scale)
-                * glam::Mat4::from_translation(self.position))
-            .to_cols_array_2d(),
+            model: self.transform.to_cols_array_2d(),
         }
     }
 }
@@ -271,16 +268,25 @@ impl State {
             .iter()
             .enumerate()
             .map(|(x, video)| {
-                let position = glam::Vec3 {
-                    x: -1.0 + 2.0 * (x as f32 / (videos.len() - 1) as f32),
+                let aspect_ratio = config.height as f32 / config.width as f32;
+                let position = glam::Mat4::from_translation(glam::Vec3 {
+                    x: 1.0 * aspect_ratio,
                     y: 0.0,
                     z: 0.0,
-                };
-                let scale = glam::Vec3 {
+                }) * glam::Mat4::from_translation(glam::Vec3 {
+                    x: (2.0 * (x as f32 / (videos.len() - 1) as f32)),
+                    y: 0.0,
+                    z: 0.0,
+                }) * glam::Mat4::from_translation(glam::Vec3 {
+                    x: -1.0 * aspect_ratio,
+                    y: 0.0,
+                    z: 0.0,
+                });
+                let scale = glam::Mat4::from_scale(glam::Vec3 {
                     x: 1.0 / videos.len() as f32,
                     y: 1.0 / videos.len() as f32,
                     z: 1.0,
-                };
+                });
 
                 let texture =
                     crate::texture::VideoTexture::new(video, &device, &queue, Some(video));
@@ -311,8 +317,7 @@ impl State {
                 });
 
                 Instance {
-                    position,
-                    scale,
+                    transform: position * scale * generate_matrix(config.width, config.height),
                     texture,
                     texture_bind_group,
                 }
